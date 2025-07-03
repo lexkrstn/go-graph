@@ -14,7 +14,7 @@ A high-performance, memory-efficient graph implementation for Go that can proces
 ## Installation
 
 ```bash
-go get github.com/lexkrstn/graph
+go get github.com/lexkrstn/go-graph
 ```
 
 ## Quick Start
@@ -24,7 +24,7 @@ package main
 
 import (
     "fmt"
-    "github.com/lexkrstn/graph"
+    "github.com/lexkrstn/go-graph"
 )
 
 func main() {
