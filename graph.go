@@ -4,7 +4,7 @@ import "errors"
 
 // Graph represents a directed graph with vertices and edges.
 // The graph encapsulates edges and vertices with support for custom data types.
-// Generic types: I (Id), C (Cost), V (Vertex data), E (Edge data)
+// Generic types: I (Id), C (Cost), V (Vertex data), E (Edge data).
 type Graph[I Id, C Cost, V any, E any] struct {
 	vertices         []Vertex[I, C] // Array of all vertices in the graph
 	idToIndex        map[I]int      // Mapping from vertex ID to array index for O(1) lookups
