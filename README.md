@@ -29,17 +29,17 @@ A high-performance, memory-efficient graph implementation for Go that can proces
     - [Basic Usage](#basic-usage-2)
     - [Negative Cycle Detection](#negative-cycle-detection)
     - [Performance Characteristics](#performance-characteristics-2)
-  - [Connected Components Algorithm](#connected-components-algorithm)
-    - [Basic Usage](#basic-usage-3)
-    - [Performance Characteristics](#performance-characteristics-3)
+- [Traversal Algorithms](#traversal-algorithms)
   - [Depth-First Search (DFS) Algorithm](#depth-first-search-dfs-algorithm)
     - [Basic Usage](#basic-usage-4)
     - [Advanced Usage with Callbacks](#advanced-usage-with-callbacks)
     - [Cycle Detection](#cycle-detection)
-    - [Use Cases](#use-cases)
     - [Performance Characteristics](#performance-characteristics-4)
-    - [Algorithm Comparison](#algorithm-comparison)
-  - [Advanced Features](#advanced-features)
+- [Graph Analysis Algorithms](#graph-analysis-algorithms)
+  - [Connected Components Algorithm](#connected-components-algorithm)
+    - [Basic Usage](#basic-usage-3)
+    - [Performance Characteristics](#performance-characteristics-3)
+- [Advanced Features](#advanced-features)
     - [Cost Amplification](#cost-amplification)
     - [Thread Safety](#thread-safety)
 - [Performance Characteristics](#performance-characteristics-2)
@@ -292,7 +292,7 @@ allEdgesPositive := g.EveryEdge(func(vertex *graph.Vertex[int, float64], edge *g
 
 ## Pathfinding Algorithms
 
-The library provides four powerful pathfinding algorithms and one graph analysis algorithm, all optimized for performance and memory efficiency.
+The library provides three powerful pathfinding algorithms, all optimized for performance and memory efficiency.
 
 ### Dijkstra's Algorithm
 
@@ -482,66 +482,9 @@ if path == nil {
 - **Negative Weights**: Supports negative edge weights (unlike Dijkstra)
 - **Cycle Detection**: Can detect negative cycles in the graph
 
-### Connected Components Algorithm
+## Traversal Algorithms
 
-The Connected Components algorithm finds all groups of vertices that are reachable from each other in a graph. It's essential for understanding graph connectivity and identifying isolated subgraphs.
-
-#### Basic Usage
-
-```go
-// Create a graph with multiple connected components
-builder := &graph.Builder[string, float64, struct{}, struct{}]{}
-// Component 1: A-B-C
-builder.AddEdge("A", "B", 1.0, struct{}{})
-builder.AddEdge("B", "C", 1.0, struct{}{})
-// Component 2: D-E
-builder.AddEdge("D", "E", 2.0, struct{}{})
-// Component 3: F (isolated)
-builder.AddVertex("F", struct{}{})
-
-g := builder.BuildDirected()
-
-// Find all connected components
-cc := graph.FindConnectedComponents(g)
-
-// Get all components
-components := cc.GetComponents()
-fmt.Printf("Found %d components:\n", len(components))
-for i, component := range components {
-    fmt.Printf("Component %d: %v\n", i+1, component)
-}
-// Output:
-// Found 3 components:
-// Component 1: [A B C]
-// Component 2: [D E]
-// Component 3: [F]
-
-// Check if graph is connected
-if cc.IsConnected() {
-    fmt.Println("Graph is connected")
-} else {
-    fmt.Println("Graph is not connected")
-}
-
-// Get component count
-count := cc.GetComponentCount()
-fmt.Printf("Component count: %d\n", count) // Output: 3
-
-// Find component containing a specific vertex
-componentA := cc.GetComponentForVertex("A")
-fmt.Printf("Component containing 'A': %v\n", componentA) // Output: [A B C]
-
-componentF := cc.GetComponentForVertex("F")
-fmt.Printf("Component containing 'F': %v\n", componentF) // Output: [F]
-```
-
-#### Performance Characteristics
-- **Time Complexity**: O(V + E) where V is vertices and E is edges (computed once)
-- **Space Complexity**: O(V) for vertex data storage
-- **Query Performance**: O(1) for most operations after initial computation
-- **Memory Efficient**: Components are computed once and cached for fast subsequent queries
-- **Thread Safety**: Not thread-safe for concurrent calls: use separate instances of the algorithm, but the graph itself can be safely shared as long as you don't modify it
-- **Directed Graphs**: Handles directed graphs by considering both incoming and outgoing edges
+The library provides powerful graph traversal algorithms optimized for performance and memory efficiency.
 
 ### Depth-First Search (DFS) Algorithm
 
@@ -673,17 +616,6 @@ if !dfs.HasCycle() {
 - **Performance**: O(V + E) time complexity
 - **DAG Validation**: Perfect for validating Directed Acyclic Graphs
 
-#### Use Cases
-
-- **Path Finding**: Find any path between two vertices (not necessarily shortest)
-- **Reachability Analysis**: Check if one vertex can reach another
-- **Graph Traversal**: Visit all reachable vertices from a starting point
-- **Custom Processing**: Process vertices and edges during traversal
-- **Cycle Detection**: Detect cycles in directed graphs using `HasCycle()` and `FindCycles()`
-- **DAG Validation**: Verify that a graph is a Directed Acyclic Graph (DAG)
-- **Cycle Analysis**: Get detailed information about all cycles in the graph
-- **Component Analysis**: Find all vertices in a connected component
-
 #### Performance Characteristics
 
 - **Time Complexity**: O(V + E) where V is vertices and E is edges
@@ -693,16 +625,72 @@ if !dfs.HasCycle() {
 - **Thread Safety**: Not thread-safe for concurrent calls: use separate instances of the algorithm, but the graph itself can be safely shared as long as you don't modify it
 - **Large Graph Support**: Can handle very deep graphs without stack overflow issues
 
-#### Algorithm Comparison
+## Graph Analysis Algorithms
 
-| Algorithm | Use Case | Time Complexity | Space Complexity | Optimal Path |
-|-----------|----------|----------------|------------------|--------------|
-| **DFS** | Path finding, traversal, reachability | O(V + E) | O(V) | No |
-| **Dijkstra** | Shortest path (non-negative weights) | O(E log V) | O(V) | Yes |
-| **A*** | Shortest path with heuristics | O(E log V) | O(V) | Yes |
-| **Bellman-Ford** | Shortest path (negative weights) | O(VE) | O(V) | Yes |
+The library provides powerful graph analysis algorithms for understanding graph structure and connectivity.
 
-### Advanced Features
+### Connected Components Algorithm
+
+The Connected Components algorithm finds all groups of vertices that are reachable from each other in a graph. It's essential for understanding graph connectivity and identifying isolated subgraphs.
+
+#### Basic Usage
+
+```go
+// Create a graph with multiple connected components
+builder := &graph.Builder[string, float64, struct{}, struct{}]{}
+// Component 1: A-B-C
+builder.AddEdge("A", "B", 1.0, struct{}{})
+builder.AddEdge("B", "C", 1.0, struct{}{})
+// Component 2: D-E
+builder.AddEdge("D", "E", 2.0, struct{}{})
+// Component 3: F (isolated)
+builder.AddVertex("F", struct{}{})
+
+g := builder.BuildDirected()
+
+// Find all connected components
+cc := graph.FindConnectedComponents(g)
+
+// Get all components
+components := cc.GetComponents()
+fmt.Printf("Found %d components:\n", len(components))
+for i, component := range components {
+    fmt.Printf("Component %d: %v\n", i+1, component)
+}
+// Output:
+// Found 3 components:
+// Component 1: [A B C]
+// Component 2: [D E]
+// Component 3: [F]
+
+// Check if graph is connected
+if cc.IsConnected() {
+    fmt.Println("Graph is connected")
+} else {
+    fmt.Println("Graph is not connected")
+}
+
+// Get component count
+count := cc.GetComponentCount()
+fmt.Printf("Component count: %d\n", count) // Output: 3
+
+// Find component containing a specific vertex
+componentA := cc.GetComponentForVertex("A")
+fmt.Printf("Component containing 'A': %v\n", componentA) // Output: [A B C]
+
+componentF := cc.GetComponentForVertex("F")
+fmt.Printf("Component containing 'F': %v\n", componentF) // Output: [F]
+```
+
+#### Performance Characteristics
+- **Time Complexity**: O(V + E) where V is vertices and E is edges (computed once)
+- **Space Complexity**: O(V) for vertex data storage
+- **Query Performance**: O(1) for most operations after initial computation
+- **Memory Efficient**: Components are computed once and cached for fast subsequent queries
+- **Thread Safety**: Not thread-safe for concurrent calls: use separate instances of the algorithm, but the graph itself can be safely shared as long as you don't modify it
+- **Directed Graphs**: Handles directed graphs by considering both incoming and outgoing edges
+
+## Advanced Features
 
 #### Cost Amplification
 
