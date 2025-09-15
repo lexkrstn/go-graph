@@ -29,6 +29,9 @@ A high-performance, memory-efficient graph implementation for Go that can proces
     - [Basic Usage](#basic-usage-2)
     - [Negative Cycle Detection](#negative-cycle-detection)
     - [Performance Characteristics](#performance-characteristics-2)
+  - [Connected Components Algorithm](#connected-components-algorithm)
+    - [Basic Usage](#basic-usage-3)
+    - [Performance Characteristics](#performance-characteristics-3)
   - [Advanced Features](#advanced-features)
     - [Cost Amplification](#cost-amplification)
     - [Thread Safety](#thread-safety)
@@ -40,12 +43,16 @@ A high-performance, memory-efficient graph implementation for Go that can proces
 
 ## Features
 
-- **Memory Optimization**: Uses the [flyweight pattern](https://refactoring.guru/design-patterns/flyweight) for efficient memory usage
-- **Minimal Allocations**: Algorithms reuse memory between operations, and the Builder optimizes large graph loading
-- **Heap-based Priority Queues**: Optimized search algorithms with efficient priority queue implementations
-- **Runtime Weight Computation**: Edge weights can be computed dynamically based on vertex/edge data
-- **Thread Safety**: Static graph data is immutable and can be safely shared between goroutines
-- **Generic Design**: Type-safe implementation with flexible ID and cost types
+- **Minimal Allocations**: Algorithms reuse memory between operations, and the Builder optimizes large graph loading.
+- **Heap-based Priority Queues**: Optimized search algorithms with efficient priority queue implementations.
+- **Graph Analysis**: Connected components algorithm for understanding graph connectivity and structure.
+- **Efficient Custom Data**: Custom data can be attached to vertices and edges and can be accessed with O(1) time complexity during runtime. The implementation relies on the [SparseSet data structure](https://
+medium.com/gitconnected/
+fast-ecs-from-scratch-in-rust-for-your-game-engine-d7
+de8f23cd4a#a6b8) to efficiently store the associated data, making data access as fast as reading from a slice by a known index (which is much faster than using a map, particularly for large graphs).
+- **Runtime Weight Computation**: Edge weights can be overwritten dynamically based on vertex/edge data. Moreover some transitions can be completely disabled at runtime, which is useful for example when you want to simulate a traffic jam or any other dynamic situation without having to rebuild the graph.
+- **Thread Safety**: Static graph data is immutable and can be safely shared between goroutines. Separating the algorithms' data from the graph data saves a lot of memory, especially in case of large graphs.
+- **Generic Design**: Type-safe implementation with flexible ID, cost, vertex and edge data types.
 
 ## Installation
 
@@ -82,6 +89,17 @@ func main() {
     
     fmt.Printf("Graph has %d vertices and %d edges\n", 
         g.GetVertexCount(), g.GetEdgeCount())
+
+    // Create Dijkstra instance
+    dijkstra := graph.NewDijkstra(g)
+
+    // Find shortest path from A to C
+    path := dijkstra.FindShortestPath("A", "C")
+    if path != nil {
+        fmt.Printf("Shortest path: %v\n", path) // Output: [A B C]
+    } else {
+        fmt.Println("No path found")
+    }
 }
 ```
 
@@ -267,7 +285,7 @@ allEdgesPositive := g.EveryEdge(func(vertex *graph.Vertex[int, float64], edge *g
 
 ## Pathfinding Algorithms
 
-The library provides three powerful pathfinding algorithms optimized for performance and memory efficiency.
+The library provides three powerful pathfinding algorithms and one graph analysis algorithm, all optimized for performance and memory efficiency.
 
 ### Dijkstra's Algorithm
 
@@ -457,6 +475,67 @@ if path == nil {
 - **Negative Weights**: Supports negative edge weights (unlike Dijkstra)
 - **Cycle Detection**: Can detect negative cycles in the graph
 
+### Connected Components Algorithm
+
+The Connected Components algorithm finds all groups of vertices that are reachable from each other in a graph. It's essential for understanding graph connectivity and identifying isolated subgraphs.
+
+#### Basic Usage
+
+```go
+// Create a graph with multiple connected components
+builder := &graph.Builder[string, float64, struct{}, struct{}]{}
+// Component 1: A-B-C
+builder.AddEdge("A", "B", 1.0, struct{}{})
+builder.AddEdge("B", "C", 1.0, struct{}{})
+// Component 2: D-E
+builder.AddEdge("D", "E", 2.0, struct{}{})
+// Component 3: F (isolated)
+builder.AddVertex("F", struct{}{})
+
+g := builder.BuildDirected()
+
+// Find all connected components
+cc := graph.FindConnectedComponents(g)
+
+// Get all components
+components := cc.GetComponents()
+fmt.Printf("Found %d components:\n", len(components))
+for i, component := range components {
+    fmt.Printf("Component %d: %v\n", i+1, component)
+}
+// Output:
+// Found 3 components:
+// Component 1: [A B C]
+// Component 2: [D E]
+// Component 3: [F]
+
+// Check if graph is connected
+if cc.IsConnected() {
+    fmt.Println("Graph is connected")
+} else {
+    fmt.Println("Graph is not connected")
+}
+
+// Get component count
+count := cc.GetComponentCount()
+fmt.Printf("Component count: %d\n", count) // Output: 3
+
+// Find component containing a specific vertex
+componentA := cc.GetComponentForVertex("A")
+fmt.Printf("Component containing 'A': %v\n", componentA) // Output: [A B C]
+
+componentF := cc.GetComponentForVertex("F")
+fmt.Printf("Component containing 'F': %v\n", componentF) // Output: [F]
+```
+
+#### Performance Characteristics
+- **Time Complexity**: O(V + E) where V is vertices and E is edges (computed once)
+- **Space Complexity**: O(V) for vertex data storage
+- **Query Performance**: O(1) for most operations after initial computation
+- **Memory Efficient**: Components are computed once and cached for fast subsequent queries
+- **Thread Safety**: Not thread-safe for concurrent calls: use separate instances of the algorithm, but the graph itself can be safely shared as long as you don't modify it
+- **Directed Graphs**: Handles directed graphs by considering both incoming and outgoing edges
+
 ### Advanced Features
 
 #### Cost Amplification
@@ -520,6 +599,18 @@ go func() {
 | **Use Case** | General shortest path | Pathfinding with spatial awareness | Graphs with negative weights |
 | **Heuristic Required** | No | Yes (admissible) | No |
 | **Best For** | Non-negative weights | Known goal location, spatial problems | Negative weights, cycle detection |
+
+### Graph Analysis Algorithms
+
+| Feature | Connected Components Algorithm |
+|---------|-------------------------------|
+| **Purpose** | Find groups of connected vertices |
+| **Performance** | O(V + E) (computed once) |
+| **Memory Usage** | O(V) |
+| **Query Performance** | O(1) for most operations |
+| **Directed Graphs** | ✅ Yes (considers both directions) |
+| **Use Case** | Graph connectivity analysis, subgraph identification |
+| **Best For** | Understanding graph structure, finding isolated components |
 
 ## Performance Characteristics
 

@@ -518,3 +518,155 @@ func BenchmarkDijkstraVsBellmanFord(b *testing.B) {
 		}
 	})
 }
+
+// ConnectedComponents benchmarks
+
+func BenchmarkConnectedComponentsFindConnectedComponents(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a graph with 1000 vertices and 5000 edges
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		builder.AddEdge(i%1000, (i+1)%1000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = FindConnectedComponents(graph)
+	}
+}
+
+func BenchmarkConnectedComponentsGetComponents(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a graph with 1000 vertices and 5000 edges
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		builder.AddEdge(i%1000, (i+1)%1000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	cc := FindConnectedComponents(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = cc.GetComponents()
+	}
+}
+
+func BenchmarkConnectedComponentsFindConnectedComponentsSmall(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a small graph with 100 vertices and 200 edges
+	for i := 0; i < 100; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 200; i++ {
+		builder.AddEdge(i%100, (i+1)%100, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	cc := FindConnectedComponents(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = cc.GetComponents()
+	}
+}
+
+func BenchmarkConnectedComponentsFindConnectedComponentsLarge(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a large graph with 10000 vertices and 50000 edges
+	for i := 0; i < 10000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 50000; i++ {
+		builder.AddEdge(i%10000, (i+1)%10000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	cc := FindConnectedComponents(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = cc.GetComponents()
+	}
+}
+
+func BenchmarkConnectedComponentsIsConnected(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a connected graph with 1000 vertices and 5000 edges
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		builder.AddEdge(i%1000, (i+1)%1000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	cc := FindConnectedComponents(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = cc.IsConnected()
+	}
+}
+
+func BenchmarkConnectedComponentsGetComponentCount(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a graph with multiple components
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	// Create 10 separate components
+	for component := 0; component < 10; component++ {
+		start := component * 100
+		for i := 0; i < 99; i++ {
+			builder.AddEdge(start+i, start+i+1, float64(i), true)
+		}
+	}
+
+	graph := builder.BuildDirected()
+	cc := FindConnectedComponents(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = cc.GetComponentCount()
+	}
+}
+
+func BenchmarkConnectedComponentsGetComponentForVertex(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a connected graph with 1000 vertices and 5000 edges
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		builder.AddEdge(i%1000, (i+1)%1000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	cc := FindConnectedComponents(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = cc.GetComponentForVertex(500)
+	}
+}
