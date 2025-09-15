@@ -2,6 +2,38 @@
 
 A high-performance, memory-efficient graph implementation for Go that can process graphs with millions of edges and vertices in milliseconds.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Type System](#type-system)
+  - [Core Types](#core-types)
+    - [`Id` - Vertex Identifier Types](#id---vertex-identifier-types)
+    - [`Cost` - Edge Cost Types](#cost---edge-cost-types)
+    - [`Graph[I, C, V, E]`](#graph-i-c-v-e)
+- [Usage Examples](#usage-examples)
+  - [1. Simple Graph with Integer IDs](#1-simple-graph-with-integer-ids)
+  - [2. Graph with Custom Data](#2-graph-with-custom-data)
+  - [3. Using DTOs for Data Transfer](#3-using-dtos-for-data-transfer)
+  - [4. Graph Traversal](#4-graph-traversal)
+- [Pathfinding Algorithms](#pathfinding-algorithms)
+  - [Dijkstra's Algorithm](#dijkstras-algorithm)
+    - [Basic Usage](#basic-usage)
+    - [Performance Characteristics](#performance-characteristics)
+  - [A* Algorithm](#a-algorithm)
+    - [Basic Usage](#basic-usage-1)
+    - [Heuristic Functions](#heuristic-functions)
+    - [Performance Characteristics](#performance-characteristics-1)
+  - [Advanced Features](#advanced-features)
+    - [Cost Amplification](#cost-amplification)
+    - [Thread Safety](#thread-safety)
+  - [Algorithm Comparison](#algorithm-comparison)
+- [Performance Characteristics](#performance-characteristics-2)
+- [TODO](#todo)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Features
 
 - **Memory Optimization**: Uses the [flyweight pattern](https://refactoring.guru/design-patterns/flyweight) for efficient memory usage
@@ -229,11 +261,201 @@ allEdgesPositive := g.EveryEdge(func(vertex *graph.Vertex[int, float64], edge *g
 })
 ```
 
+## Pathfinding Algorithms
+
+The library provides two powerful pathfinding algorithms optimized for performance and memory efficiency.
+
+### Dijkstra's Algorithm
+
+Dijkstra's algorithm finds the shortest path between two vertices in a weighted graph. It guarantees the optimal solution for non-negative edge weights.
+
+#### Basic Usage
+
+```go
+// Create a graph
+builder := &graph.Builder[string, float64, struct{}, struct{}]{}
+builder.AddEdge("A", "B", 4.0, struct{}{})
+builder.AddEdge("A", "C", 2.0, struct{}{})
+builder.AddEdge("B", "C", 1.0, struct{}{})
+builder.AddEdge("B", "D", 5.0, struct{}{})
+builder.AddEdge("C", "D", 8.0, struct{}{})
+builder.AddEdge("C", "E", 10.0, struct{}{})
+builder.AddEdge("D", "E", 2.0, struct{}{})
+
+g := builder.BuildDirected()
+
+// Create Dijkstra instance
+dijkstra := graph.NewDijkstra(g)
+
+// Find shortest path from A to E
+path := dijkstra.FindShortestPath("A", "E")
+if path != nil {
+    fmt.Printf("Shortest path: %v\n", path) // Output: [A C B D E]
+} else {
+    fmt.Println("No path found")
+}
+```
+
+#### Performance Characteristics
+- **Time Complexity**: O(E log V) where E is edges and V is vertices.
+- **Space Complexity**: O(V) for vertex data storage.
+- **Memory Efficient**: Reuses internal data structures between calls.
+- **Thread Safety**: Not thread-safe for concurrent calls: use separate instances of the algorithm, but the graph itself can be safely shared as long as you don't modify it.
+
+### A* Algorithm
+
+A* is an informed search algorithm that uses heuristics to find the shortest path more efficiently than Dijkstra's algorithm. It's particularly effective when you have a good heuristic function.
+
+#### Basic Usage
+
+```go
+// Create a graph with 2D coordinates
+type Position struct {
+    X, Y int
+}
+
+builder := &graph.Builder[string, float64, Position, struct{}]{}
+builder.AddVertex("A", Position{0, 0})
+builder.AddVertex("B", Position{1, 0})
+builder.AddVertex("C", Position{1, 1})
+builder.AddVertex("D", Position{2, 1})
+builder.AddVertex("E", Position{2, 2})
+
+// Add edges with Euclidean distances
+builder.AddEdge("A", "B", 1.0, struct{}{})
+builder.AddEdge("A", "C", 1.414, struct{}{}) // sqrt(2)
+builder.AddEdge("B", "C", 1.0, struct{}{})
+builder.AddEdge("B", "D", 1.0, struct{}{})
+builder.AddEdge("C", "D", 1.0, struct{}{})
+builder.AddEdge("C", "E", 1.414, struct{}{})
+builder.AddEdge("D", "E", 1.0, struct{}{})
+
+g := builder.BuildDirected()
+
+// Define heuristic function (Euclidean distance)
+heuristic := func(current *graph.Vertex[string, float64], goal *graph.Vertex[string, float64]) float64 {
+    currentPos, _ := g.GetVertexData(current)
+    goalPos, _ := g.GetVertexData(goal)
+    
+    dx := float64(currentPos.X - goalPos.X)
+    dy := float64(currentPos.Y - goalPos.Y)
+    return math.Sqrt(dx*dx + dy*dy)
+}
+
+// Create A* instance
+astar := graph.NewAStar(g, heuristic)
+
+// Find shortest path from A to E
+path := astar.FindShortestPath("A", "E")
+if path != nil {
+    fmt.Printf("A* path: %v\n", path) // Output: [A C E]
+} else {
+    fmt.Println("No path found")
+}
+```
+
+#### Heuristic Functions
+
+A* requires a heuristic function that estimates the cost from any vertex to the goal. The heuristic must be **admissible** (never overestimate the actual cost) for A* to guarantee optimal solutions.
+
+##### Common Heuristic Functions
+
+**1. Zero Heuristic (Dijkstra's Algorithm)**
+```go
+zeroHeuristic := func(current *graph.Vertex[I, C], goal *graph.Vertex[I, C]) C {
+    var zero C
+    return zero
+}
+```
+
+**2. Manhattan Distance (for grid-based problems)**
+```go
+manhattanHeuristic := func(current *graph.Vertex[string, float64], goal *graph.Vertex[string, float64]) float64 {
+    currentPos, _ := g.GetVertexData(current)
+    goalPos, _ := g.GetVertexData(goal)
+    return math.Abs(float64(currentPos.X-goalPos.X)) + math.Abs(float64(currentPos.Y-goalPos.Y))
+}
+```
+
+**3. Euclidean Distance (for 2D coordinates)**
+```go
+euclideanHeuristic := func(current *graph.Vertex[string, float64], goal *graph.Vertex[string, float64]) float64 {
+    currentPos, _ := g.GetVertexData(current)
+    goalPos, _ := g.GetVertexData(goal)
+    dx := float64(currentPos.X - goalPos.X)
+    dy := float64(currentPos.Y - goalPos.Y)
+    return math.Sqrt(dx*dx + dy*dy)
+}
+```
+
+#### Performance Characteristics
+- **Time Complexity**: O(E log V) in worst case, often much better with good heuristics
+- **Space Complexity**: O(V) for vertex data storage
+- **Optimality**: Guarantees optimal solution with admissible heuristics
+- **Efficiency**: Typically explores fewer vertices than Dijkstra's algorithm
+
+### Advanced Features
+
+#### Cost Amplification
+
+Both algorithms support cost amplification functions that can modify edge costs at runtime or disable edges:
+
+```go
+// Define a cost function that doubles the cost of certain edges
+costAmplifier := func(vertex *graph.Vertex[string, float64], edge *graph.Edge[string, float64]) (float64, bool) {
+    // Double the cost for edges with specific data
+    if edge.GetData().IsHighway {
+        return edge.GetCost() * 2, true
+    }
+    return edge.GetCost(), true
+}
+
+// Apply to Dijkstra
+dijkstra.Amplifier = costAmplifier
+
+// Apply to A*
+astar.Amplifier = costAmplifier
+```
+
+#### Thread Safety
+
+Both algorithms are **not thread-safe** for concurrent calls, but the graph itself can be safely shared:
+
+```go
+// Safe: Multiple algorithms can use the same graph
+graph1 := builder.BuildDirected()
+
+dijkstra1 := graph.NewDijkstra(graph1)
+dijkstra2 := graph.NewDijkstra(graph1)
+
+// Safe: Different goroutines can use different algorithm instances
+go func() {
+    path1 := dijkstra1.FindShortestPath("A", "B")
+    // Process path1
+}()
+
+go func() {
+    path2 := dijkstra2.FindShortestPath("C", "D")
+    // Process path2
+}()
+```
+
+### Algorithm Comparison
+
+| Feature | Dijkstra's Algorithm | A* Algorithm |
+|---------|---------------------|--------------|
+| **Optimality** | Always optimal | Optimal with admissible heuristics |
+| **Performance** | O(E log V) | O(E log V), often faster with good heuristics |
+| **Memory Usage** | O(V) | O(V) |
+| **Use Case** | General shortest path | Pathfinding with spatial awareness |
+| **Heuristic Required** | No | Yes (admissible) |
+| **Best For** | Unknown graph structure | Known goal location, spatial problems |
+
 ## Performance Characteristics
 
 - **Memory Usage**: Optimized for large graphs with millions of vertices/edges
 - **Vertex Lookup**: O(1) time complexity using hash maps
-- **Edge Traversal**: O(1) per edge with minimal memory allocations
+- **Edge Traversal**: O(1) per edge with little to no memory allocations
 - **Graph Construction**: Bulk allocation reduces memory fragmentation
 - **Thread Safety**: Immutable graph structure allows safe concurrent access
 
@@ -243,8 +465,6 @@ allEdgesPositive := g.EveryEdge(func(vertex *graph.Vertex[int, float64], edge *g
 - `Builder.BuildBiDirected()`
 - `MakeBuilderFromGraph()` - use visitors to collect edges and vertices
 - Algorithms:
-  - `Dijkstra`
-  - `AStar`
   - `BellmanFord`
   - `ConnectedComponents`
 
