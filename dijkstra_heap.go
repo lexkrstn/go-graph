@@ -10,7 +10,6 @@ type dijkstraVertexData[I Id, C Cost] struct {
 // dijkstraHeap implements heap.Interface for the priority queue
 type dijkstraHeap[I Id, C Cost, V any, E any] struct {
 	pq        []*Vertex[I, C]
-	graph     *Graph[I, C, V, E]
 	algorithm *Dijkstra[I, C, V, E]
 }
 
