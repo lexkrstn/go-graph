@@ -21,6 +21,7 @@ type Dijkstra[I Id, C Cost, V any, E any] struct {
 	// GetCustomDataIndex() method.
 	vertexData []dijkstraVertexData[I, C]
 	maxCost    C
+	Amplifier  CostFunc[I, C, V, E]
 }
 
 // Creates a new Dijkstra instance for the given graph.
@@ -109,8 +110,18 @@ func (d *Dijkstra[I, C, V, E]) FindShortestPath(start I, end I) []I {
 				continue
 			}
 
+			edgeCost := edge.cost
+
+			if d.Amplifier != nil {
+				cost, enabled := d.Amplifier(current, &edge)
+				if !enabled {
+					continue
+				}
+				edgeCost = cost
+			}
+
 			// Calculate tentative distance
-			tentativeDistance := currentData.cost + edge.cost
+			tentativeDistance := currentData.cost + edgeCost
 
 			// If this is a better path to the neighbor
 			if tentativeDistance < neighborData.cost {

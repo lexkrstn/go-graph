@@ -69,3 +69,5 @@ func assignMaxNumber(v interface{}) {
 		panic("Unsupported type")
 	}
 }
+
+type CostFunc[I Id, C Cost, V any, E any] func(origin *Vertex[I, C], edge *Edge[I, C]) (C, bool)

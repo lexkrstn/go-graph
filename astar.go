@@ -7,7 +7,7 @@ import (
 // HeuristicFunc represents a function that estimates the cost from a vertex to the goal.
 // It should return an admissible heuristic (never overestimate the actual cost).
 // The function takes the current vertex ID and the goal vertex ID and returns the estimated cost.
-type HeuristicFunc[I Id, C Cost] func(current I, goal I) C
+type HeuristicFunc[I Id, C Cost, V any, E any] func(origin *Vertex[I, C], goal *Vertex[I, C]) C
 
 // The A* algorithm Use-Case (aka Command) object.
 // It reuses the shared heap to limit the number of allocations during runtime,
@@ -17,7 +17,7 @@ type HeuristicFunc[I Id, C Cost] func(current I, goal I) C
 type AStar[I Id, C Cost, V any, E any] struct {
 	graph     *Graph[I, C, V, E]
 	heap      *astarHeap[I, C, V, E]
-	heuristic HeuristicFunc[I, C]
+	heuristic HeuristicFunc[I, C, V, E]
 	// The data that is attached to the vertices by the algorithms.
 	// This is a speed optimization to avoid allocating memory for the heap and
 	// vertex data on each call.
@@ -27,12 +27,13 @@ type AStar[I Id, C Cost, V any, E any] struct {
 	// GetCustomDataIndex() method.
 	vertexData []astarVertexData[I, C]
 	maxCost    C
+	Amplifier  CostFunc[I, C, V, E]
 }
 
 // Creates a new A* instance for the given graph with a heuristic function.
 // This function is thread-safe and can be called concurrently as long as the
 // graph doesn't change.
-func NewAStar[I Id, C Cost, V any, E any](graph *Graph[I, C, V, E], heuristic HeuristicFunc[I, C]) *AStar[I, C, V, E] {
+func NewAStar[I Id, C Cost, V any, E any](graph *Graph[I, C, V, E], heuristic HeuristicFunc[I, C, V, E]) *AStar[I, C, V, E] {
 	vertexData := make([]astarVertexData[I, C], len(graph.vertices))
 	algorithm := &AStar[I, C, V, E]{
 		graph:      graph,
@@ -82,7 +83,7 @@ func (a *AStar[I, C, V, E]) FindShortestPath(start I, end I) []I {
 	// Set start vertex g-score to 0 and calculate f-score
 	startIdx := startVertex.GetCustomDataIndex()
 	a.vertexData[startIdx].gScore = 0
-	a.vertexData[startIdx].fScore = a.heuristic(start, end)
+	a.vertexData[startIdx].fScore = a.heuristic(startVertex, endVertex)
 	heap.Push(a.heap, startVertex)
 
 	// Main A* loop
@@ -116,13 +117,23 @@ func (a *AStar[I, C, V, E]) FindShortestPath(start I, end I) []I {
 				continue
 			}
 
+			edgeCost := edge.cost
+
+			if a.Amplifier != nil {
+				cost, enabled := a.Amplifier(current, &edge)
+				if !enabled {
+					continue
+				}
+				edgeCost = cost
+			}
+
 			// Calculate tentative g-score (cost from start to neighbor)
-			tentativeGScore := currentData.gScore + edge.cost
+			tentativeGScore := currentData.gScore + edgeCost
 
 			// If this is a better path to the neighbor
 			if tentativeGScore < neighborData.gScore {
 				neighborData.gScore = tentativeGScore
-				neighborData.fScore = tentativeGScore + a.heuristic(neighbor.id, end)
+				neighborData.fScore = tentativeGScore + a.heuristic(neighbor, endVertex)
 				neighborData.previous = current
 				heap.Push(a.heap, neighbor)
 			}
