@@ -32,10 +32,16 @@ A high-performance, memory-efficient graph implementation for Go that can proces
   - [Connected Components Algorithm](#connected-components-algorithm)
     - [Basic Usage](#basic-usage-3)
     - [Performance Characteristics](#performance-characteristics-3)
+  - [Depth-First Search (DFS) Algorithm](#depth-first-search-dfs-algorithm)
+    - [Basic Usage](#basic-usage-4)
+    - [Advanced Usage with Callbacks](#advanced-usage-with-callbacks)
+    - [Cycle Detection](#cycle-detection)
+    - [Use Cases](#use-cases)
+    - [Performance Characteristics](#performance-characteristics-4)
+    - [Algorithm Comparison](#algorithm-comparison)
   - [Advanced Features](#advanced-features)
     - [Cost Amplification](#cost-amplification)
     - [Thread Safety](#thread-safety)
-  - [Algorithm Comparison](#algorithm-comparison)
 - [Performance Characteristics](#performance-characteristics-2)
 - [TODO](#todo)
 - [Contributing](#contributing)
@@ -46,6 +52,7 @@ A high-performance, memory-efficient graph implementation for Go that can proces
 - **Minimal Allocations**: Algorithms reuse memory between operations, and the Builder optimizes large graph loading.
 - **Heap-based Priority Queues**: Optimized search algorithms with efficient priority queue implementations.
 - **Graph Analysis**: Connected components algorithm for understanding graph connectivity and structure.
+- **Flexible Traversal**: Depth-First Search (DFS) algorithm with callback support for custom vertex and edge processing.
 - **Efficient Custom Data**: Custom data can be attached to vertices and edges and can be accessed with O(1) time complexity during runtime. The implementation relies on the [SparseSet data structure](https://
 medium.com/gitconnected/
 fast-ecs-from-scratch-in-rust-for-your-game-engine-d7
@@ -285,7 +292,7 @@ allEdgesPositive := g.EveryEdge(func(vertex *graph.Vertex[int, float64], edge *g
 
 ## Pathfinding Algorithms
 
-The library provides three powerful pathfinding algorithms and one graph analysis algorithm, all optimized for performance and memory efficiency.
+The library provides four powerful pathfinding algorithms and one graph analysis algorithm, all optimized for performance and memory efficiency.
 
 ### Dijkstra's Algorithm
 
@@ -535,6 +542,165 @@ fmt.Printf("Component containing 'F': %v\n", componentF) // Output: [F]
 - **Memory Efficient**: Components are computed once and cached for fast subsequent queries
 - **Thread Safety**: Not thread-safe for concurrent calls: use separate instances of the algorithm, but the graph itself can be safely shared as long as you don't modify it
 - **Directed Graphs**: Handles directed graphs by considering both incoming and outgoing edges
+
+### Depth-First Search (DFS) Algorithm
+
+The Depth-First Search algorithm provides flexible graph traversal capabilities with support for pathfinding, reachability checking, and custom vertex/edge processing. It uses an iterative approach to avoid stack overflow issues with large graphs.
+
+#### Basic Usage
+
+```go
+// Create a graph
+builder := &graph.Builder[string, float64, struct{}, struct{}]{}
+builder.AddEdge("A", "B", 1.0, struct{}{})
+builder.AddEdge("B", "C", 2.0, struct{}{})
+builder.AddEdge("A", "D", 3.0, struct{}{})
+builder.AddEdge("D", "E", 4.0, struct{}{})
+
+g := builder.BuildDirected()
+
+// Create DFS instance
+dfs := graph.NewDFS(g)
+
+// Find a path between two vertices
+path := dfs.FindPath("A", "E")
+if path != nil {
+    fmt.Printf("Path from A to E: %v\n", path) // Output: [A D E]
+} else {
+    fmt.Println("No path found")
+}
+
+// Check if one vertex is reachable from another
+if dfs.IsReachable("A", "C") {
+    fmt.Println("C is reachable from A")
+} else {
+    fmt.Println("C is not reachable from A")
+}
+
+// Get all vertices reachable from a starting vertex
+reachable := dfs.GetAllReachable("A")
+fmt.Printf("All reachable from A: %v\n", reachable) // Output: [A B C D E]
+
+// Check if the graph contains any cycles
+if dfs.HasCycle() {
+    fmt.Println("Graph contains a cycle")
+} else {
+    fmt.Println("Graph is acyclic")
+}
+
+// Find all cycles in the graph
+cycles := dfs.FindCycles()
+if len(cycles) > 0 {
+    fmt.Printf("Found %d cycles:\n", len(cycles))
+    for i, cycle := range cycles {
+        fmt.Printf("Cycle %d: %v\n", i+1, cycle)
+    }
+} else {
+    fmt.Println("No cycles found")
+}
+```
+
+#### Advanced Usage with Callbacks
+
+The DFS algorithm supports callback-based traversal for custom processing:
+
+```go
+// Traverse with custom callback for each vertex and edge
+var visitedVertices []string
+var edgeCosts []float64
+
+dfs.TraverseFrom("A", func(vertex *graph.Vertex[string, float64], edge *graph.Edge[string, float64]) {
+    visitedVertices = append(visitedVertices, vertex.GetId())
+    
+    if edge != nil {
+        edgeCosts = append(edgeCosts, edge.GetCost())
+        fmt.Printf("Visited %s via edge with cost %.1f\n", vertex.GetId(), edge.GetCost())
+    } else {
+        fmt.Printf("Starting from %s\n", vertex.GetId())
+    }
+})
+
+fmt.Printf("Visited vertices: %v\n", visitedVertices)
+fmt.Printf("Edge costs: %v\n", edgeCosts)
+```
+
+#### Cycle Detection
+
+The DFS algorithm includes built-in cycle detection capabilities:
+
+```go
+// Create a graph with a cycle
+builder := &graph.Builder[string, float64, struct{}, struct{}]{}
+builder.AddEdge("A", "B", 1.0, struct{}{})
+builder.AddEdge("B", "C", 2.0, struct{}{})
+builder.AddEdge("C", "A", 3.0, struct{}{}) // Creates a cycle
+
+g := builder.BuildDirected()
+dfs := graph.NewDFS(g)
+
+// Detect cycles
+if dfs.HasCycle() {
+    fmt.Println("Graph contains a cycle")
+} else {
+    fmt.Println("Graph is acyclic (DAG)")
+}
+
+// Find all cycles for detailed analysis
+cycles := dfs.FindCycles()
+if len(cycles) > 0 {
+    fmt.Printf("Found %d cycles:\n", len(cycles))
+    for i, cycle := range cycles {
+        fmt.Printf("Cycle %d: %v\n", i+1, cycle)
+    }
+}
+
+// Example: Validate DAG before topological sorting
+if !dfs.HasCycle() {
+    fmt.Println("Safe to perform topological sort")
+} else {
+    fmt.Println("Cannot perform topological sort - cycle detected")
+    fmt.Printf("Cycles found: %v\n", cycles)
+}
+```
+
+**Cycle Detection Features:**
+- **HasCycle()**: Quick boolean check for cycle existence
+- **FindCycles()**: Returns detailed cycle information as vertex ID arrays
+- **Directed Graphs**: Detects directed cycles (A→B→C→A)
+- **Self-Loops**: Detects self-loops (A→A)
+- **Multiple Components**: Finds cycles in any connected component
+- **Duplicate Prevention**: Avoids reporting the same cycle multiple times
+- **Performance**: O(V + E) time complexity
+- **DAG Validation**: Perfect for validating Directed Acyclic Graphs
+
+#### Use Cases
+
+- **Path Finding**: Find any path between two vertices (not necessarily shortest)
+- **Reachability Analysis**: Check if one vertex can reach another
+- **Graph Traversal**: Visit all reachable vertices from a starting point
+- **Custom Processing**: Process vertices and edges during traversal
+- **Cycle Detection**: Detect cycles in directed graphs using `HasCycle()` and `FindCycles()`
+- **DAG Validation**: Verify that a graph is a Directed Acyclic Graph (DAG)
+- **Cycle Analysis**: Get detailed information about all cycles in the graph
+- **Component Analysis**: Find all vertices in a connected component
+
+#### Performance Characteristics
+
+- **Time Complexity**: O(V + E) where V is vertices and E is edges
+- **Space Complexity**: O(V) for vertex data storage
+- **Iterative Implementation**: Uses explicit stack to avoid recursion and stack overflow
+- **Memory Efficient**: Reuses internal data structures between calls
+- **Thread Safety**: Not thread-safe for concurrent calls: use separate instances of the algorithm, but the graph itself can be safely shared as long as you don't modify it
+- **Large Graph Support**: Can handle very deep graphs without stack overflow issues
+
+#### Algorithm Comparison
+
+| Algorithm | Use Case | Time Complexity | Space Complexity | Optimal Path |
+|-----------|----------|----------------|------------------|--------------|
+| **DFS** | Path finding, traversal, reachability | O(V + E) | O(V) | No |
+| **Dijkstra** | Shortest path (non-negative weights) | O(E log V) | O(V) | Yes |
+| **A*** | Shortest path with heuristics | O(E log V) | O(V) | Yes |
+| **Bellman-Ford** | Shortest path (negative weights) | O(VE) | O(V) | Yes |
 
 ### Advanced Features
 

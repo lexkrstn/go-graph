@@ -40,7 +40,7 @@ func FindConnectedComponents[I Id, C Cost, V any, E any](graph *Graph[I, C, V, E
 
 		// If vertex hasn't been visited, start a new component
 		if !vertexData[vertexIdx].visited {
-			component := dfs(cc, vertex, vertexData, componentId)
+			component := findConnectedComponentsWithDfs(cc, vertex, vertexData, componentId)
 			if len(component) > 0 {
 				components = append(components, component)
 				componentId++
@@ -60,58 +60,71 @@ func (cc *ConnectedComponents[I, C, V, E]) GetComponents() [][]I {
 	return cc.components
 }
 
-// dfs performs depth-first search starting from the given vertex.
+// findConnectedComponentsWithDfs performs depth-first search starting from the given vertex.
 // It marks all reachable vertices as visited and assigns them the same component ID.
 // For directed graphs, this considers both incoming and outgoing edges to find
 // all vertices in the same strongly connected component.
+// Uses an iterative approach with an explicit stack to avoid recursion.
 // Returns a slice of vertex IDs in the connected component.
-func dfs[I Id, C Cost, V any, E any](
+func findConnectedComponentsWithDfs[I Id, C Cost, V any, E any](
 	cc *ConnectedComponents[I, C, V, E],
-	vertex *Vertex[I, C],
+	startVertex *Vertex[I, C],
 	data []connectedComponentsVertexData[I],
 	componentId int,
 ) []I {
-	vertexIdx := vertex.GetCustomDataIndex()
-	vertexData := &data[vertexIdx]
+	// Use a stack to store vertices to visit
+	stack := []*Vertex[I, C]{startVertex}
+	var component []I
 
-	// Mark as visited and assign component ID
-	vertexData.visited = true
-	vertexData.componentId = componentId
+	for len(stack) > 0 {
+		// Pop vertex from stack
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
 
-	component := []I{vertex.GetId()}
+		currentIdx := current.GetCustomDataIndex()
+		currentData := &data[currentIdx]
 
-	// Visit all neighbors recursively (outgoing edges)
-	for _, edge := range vertex.GetEdges() {
-		neighbor := edge.GetTargetVertex()
-		neighborIdx := neighbor.GetCustomDataIndex()
-		neighborData := &data[neighborIdx]
-
-		if !neighborData.visited {
-			neighborComponent := dfs(cc, neighbor, data, componentId)
-			component = append(component, neighborComponent...)
+		// Skip if already visited
+		if currentData.visited {
+			continue
 		}
-	}
 
-	// For directed graphs, also check incoming edges by searching through all vertices
-	// This ensures we find all vertices that can reach the current vertex
-	for i := range cc.graph.vertices {
-		otherVertex := &cc.graph.vertices[i]
-		otherIdx := otherVertex.GetCustomDataIndex()
-		otherData := &data[otherIdx]
+		// Mark as visited and assign component ID
+		currentData.visited = true
+		currentData.componentId = componentId
+		component = append(component, current.GetId())
 
-		if !otherData.visited {
-			// Check if this vertex has an edge to our current vertex
-			hasEdgeToCurrent := false
-			for _, edge := range otherVertex.GetEdges() {
-				if edge.GetTargetVertex() == vertex {
-					hasEdgeToCurrent = true
-					break
-				}
+		// Visit all neighbors (outgoing edges)
+		for _, edge := range current.GetEdges() {
+			neighbor := edge.GetTargetVertex()
+			neighborIdx := neighbor.GetCustomDataIndex()
+			neighborData := &data[neighborIdx]
+
+			if !neighborData.visited {
+				stack = append(stack, neighbor)
 			}
+		}
 
-			if hasEdgeToCurrent {
-				neighborComponent := dfs(cc, otherVertex, data, componentId)
-				component = append(component, neighborComponent...)
+		// For directed graphs, also check incoming edges by searching through all vertices
+		// This ensures we find all vertices that can reach the current vertex
+		for i := range cc.graph.vertices {
+			otherVertex := &cc.graph.vertices[i]
+			otherIdx := otherVertex.GetCustomDataIndex()
+			otherData := &data[otherIdx]
+
+			if !otherData.visited {
+				// Check if this vertex has an edge to our current vertex
+				hasEdgeToCurrent := false
+				for _, edge := range otherVertex.GetEdges() {
+					if edge.GetTargetVertex() == current {
+						hasEdgeToCurrent = true
+						break
+					}
+				}
+
+				if hasEdgeToCurrent {
+					stack = append(stack, otherVertex)
+				}
 			}
 		}
 	}
