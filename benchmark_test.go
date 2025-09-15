@@ -325,3 +325,196 @@ func BenchmarkCountBiEdges(b *testing.B) {
 		_ = builder.CountBiEdges()
 	}
 }
+
+// Bellman-Ford Algorithm Benchmarks
+
+func BenchmarkBellmanFordNew(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a graph with 1000 vertices and 5000 edges
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		builder.AddEdge(i%1000, (i+1)%1000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = NewBellmanFord(graph)
+	}
+}
+
+func BenchmarkBellmanFordFindShortestPath(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a graph with 1000 vertices and 5000 edges
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		builder.AddEdge(i%1000, (i+1)%1000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	bf := NewBellmanFord(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = bf.FindShortestPath(0, 999)
+	}
+}
+
+func BenchmarkBellmanFordFindShortestPathSmall(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a small graph with 10 vertices and 20 edges
+	for i := 0; i < 10; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 20; i++ {
+		builder.AddEdge(i%10, (i+1)%10, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	bf := NewBellmanFord(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = bf.FindShortestPath(0, 9)
+	}
+}
+
+func BenchmarkBellmanFordFindShortestPathLarge(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a large graph with 10000 vertices and 50000 edges
+	for i := 0; i < 10000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 50000; i++ {
+		builder.AddEdge(i%10000, (i+1)%10000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	bf := NewBellmanFord(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = bf.FindShortestPath(0, 9999)
+	}
+}
+
+func BenchmarkBellmanFordHasNegativeCycle(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a graph with 1000 vertices and 5000 edges
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		builder.AddEdge(i%1000, (i+1)%1000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	bf := NewBellmanFord(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = bf.HasNegativeCycle(0)
+	}
+}
+
+func BenchmarkBellmanFordWithNegativeWeights(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a graph with 1000 vertices and 5000 edges, some with negative weights
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		cost := float64(i)
+		if i%10 == 0 { // Every 10th edge has negative weight
+			cost = -float64(i)
+		}
+		builder.AddEdge(i%1000, (i+1)%1000, cost, true)
+	}
+
+	graph := builder.BuildDirected()
+	bf := NewBellmanFord(graph)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = bf.FindShortestPath(0, 999)
+	}
+}
+
+func BenchmarkBellmanFordWithAmplifier(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a graph with 1000 vertices and 5000 edges
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		builder.AddEdge(i%1000, (i+1)%1000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	bf := NewBellmanFord(graph)
+
+	// Add an amplifier that modifies every 10th edge
+	bf.Amplifier = func(origin *Vertex[int, float64], edge *Edge[int, float64]) (float64, bool) {
+		if edge.GetCost() > 0 && int(edge.GetCost())%10 == 0 {
+			return edge.GetCost() * 2.0, true // Double the cost
+		}
+		return edge.GetCost(), true
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = bf.FindShortestPath(0, 999)
+	}
+}
+
+// Comparison benchmarks between Dijkstra and Bellman-Ford
+
+func BenchmarkDijkstraVsBellmanFord(b *testing.B) {
+	builder := &Builder[int, float64, string, bool]{}
+
+	// Build a graph with 1000 vertices and 5000 edges
+	for i := 0; i < 1000; i++ {
+		builder.AddVertex(i, "vertex")
+	}
+
+	for i := 0; i < 5000; i++ {
+		builder.AddEdge(i%1000, (i+1)%1000, float64(i), true)
+	}
+
+	graph := builder.BuildDirected()
+	dijkstra := NewDijkstra(graph)
+	bellmanFord := NewBellmanFord(graph)
+
+	b.Run("Dijkstra", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = dijkstra.FindShortestPath(0, 999)
+		}
+	})
+
+	b.Run("BellmanFord", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = bellmanFord.FindShortestPath(0, 999)
+		}
+	})
+}

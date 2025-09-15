@@ -25,6 +25,10 @@ A high-performance, memory-efficient graph implementation for Go that can proces
     - [Basic Usage](#basic-usage-1)
     - [Heuristic Functions](#heuristic-functions)
     - [Performance Characteristics](#performance-characteristics-1)
+  - [Bellman-Ford Algorithm](#bellman-ford-algorithm)
+    - [Basic Usage](#basic-usage-2)
+    - [Negative Cycle Detection](#negative-cycle-detection)
+    - [Performance Characteristics](#performance-characteristics-2)
   - [Advanced Features](#advanced-features)
     - [Cost Amplification](#cost-amplification)
     - [Thread Safety](#thread-safety)
@@ -263,7 +267,7 @@ allEdgesPositive := g.EveryEdge(func(vertex *graph.Vertex[int, float64], edge *g
 
 ## Pathfinding Algorithms
 
-The library provides two powerful pathfinding algorithms optimized for performance and memory efficiency.
+The library provides three powerful pathfinding algorithms optimized for performance and memory efficiency.
 
 ### Dijkstra's Algorithm
 
@@ -394,11 +398,70 @@ euclideanHeuristic := func(current *graph.Vertex[string, float64], goal *graph.V
 - **Optimality**: Guarantees optimal solution with admissible heuristics
 - **Efficiency**: Typically explores fewer vertices than Dijkstra's algorithm
 
+### Bellman-Ford Algorithm
+
+The Bellman-Ford algorithm finds the shortest path between two vertices in a weighted graph, even with negative edge weights. It can also detect negative cycles, making it more versatile than Dijkstra's algorithm for certain applications.
+
+#### Basic Usage
+
+```go
+// Create a graph with some negative weights
+builder := &graph.Builder[string, float64, struct{}, struct{}]{}
+builder.AddEdge("A", "B", 4.0, struct{}{})
+builder.AddEdge("A", "C", 2.0, struct{}{})
+builder.AddEdge("B", "C", -1.0, struct{}{}) // Negative weight
+builder.AddEdge("B", "D", 5.0, struct{}{})
+builder.AddEdge("C", "D", 8.0, struct{}{})
+builder.AddEdge("C", "E", 10.0, struct{}{})
+builder.AddEdge("D", "E", 2.0, struct{}{})
+
+g := builder.BuildDirected()
+
+// Create Bellman-Ford instance
+bellmanFord := graph.NewBellmanFord(g)
+
+// Find shortest path from A to E
+path := bellmanFord.FindShortestPath("A", "E")
+if path != nil {
+    fmt.Printf("Shortest path: %v\n", path) // Output: [A C B D E]
+} else {
+    fmt.Println("No path found or negative cycle detected")
+}
+```
+
+#### Negative Cycle Detection
+
+Bellman-Ford can detect negative cycles in the graph:
+
+```go
+// Check for negative cycles reachable from a specific vertex
+hasNegativeCycle := bellmanFord.HasNegativeCycle("A")
+if hasNegativeCycle {
+    fmt.Println("Negative cycle detected!")
+} else {
+    fmt.Println("No negative cycle found")
+}
+
+// FindShortestPath returns nil if a negative cycle is detected
+path := bellmanFord.FindShortestPath("A", "E")
+if path == nil {
+    fmt.Println("No path found due to negative cycle")
+}
+```
+
+#### Performance Characteristics
+- **Time Complexity**: O(VE) where E is edges and V is vertices
+- **Space Complexity**: O(V) for vertex data storage
+- **Memory Efficient**: Reuses internal data structures between calls
+- **Thread Safety**: Not thread-safe for concurrent calls: use separate instances of the algorithm, but the graph itself can be safely shared as long as you don't modify it
+- **Negative Weights**: Supports negative edge weights (unlike Dijkstra)
+- **Cycle Detection**: Can detect negative cycles in the graph
+
 ### Advanced Features
 
 #### Cost Amplification
 
-Both algorithms support cost amplification functions that can modify edge costs at runtime or disable edges:
+All algorithms support cost amplification functions that can modify edge costs at runtime or disable edges:
 
 ```go
 // Define a cost function that doubles the cost of certain edges
@@ -415,11 +478,14 @@ dijkstra.Amplifier = costAmplifier
 
 // Apply to A*
 astar.Amplifier = costAmplifier
+
+// Apply to Bellman-Ford
+bellmanFord.Amplifier = costAmplifier
 ```
 
 #### Thread Safety
 
-Both algorithms are **not thread-safe** for concurrent calls, but the graph itself can be safely shared:
+All algorithms are **not thread-safe** for concurrent calls, but the graph itself can be safely shared:
 
 ```go
 // Safe: Multiple algorithms can use the same graph
@@ -427,6 +493,8 @@ graph1 := builder.BuildDirected()
 
 dijkstra1 := graph.NewDijkstra(graph1)
 dijkstra2 := graph.NewDijkstra(graph1)
+bellmanFord1 := graph.NewBellmanFord(graph1)
+bellmanFord2 := graph.NewBellmanFord(graph1)
 
 // Safe: Different goroutines can use different algorithm instances
 go func() {
@@ -435,21 +503,23 @@ go func() {
 }()
 
 go func() {
-    path2 := dijkstra2.FindShortestPath("C", "D")
+    path2 := bellmanFord1.FindShortestPath("C", "D")
     // Process path2
 }()
 ```
 
 ### Algorithm Comparison
 
-| Feature | Dijkstra's Algorithm | A* Algorithm |
-|---------|---------------------|--------------|
-| **Optimality** | Always optimal | Optimal with admissible heuristics |
-| **Performance** | O(E log V) | O(E log V), often faster with good heuristics |
-| **Memory Usage** | O(V) | O(V) |
-| **Use Case** | General shortest path | Pathfinding with spatial awareness |
-| **Heuristic Required** | No | Yes (admissible) |
-| **Best For** | Unknown graph structure | Known goal location, spatial problems |
+| Feature | Dijkstra's Algorithm | A* Algorithm | Bellman-Ford Algorithm |
+|---------|---------------------|--------------|------------------------|
+| **Optimality** | Always optimal | Optimal with admissible heuristics | Always optimal |
+| **Performance** | O(E log V) | O(E log V), often faster with good heuristics | O(VE) |
+| **Memory Usage** | O(V) | O(V) | O(V) |
+| **Negative Weights** | ❌ No | ❌ No | ✅ Yes |
+| **Negative Cycles** | ❌ Fails | ❌ Fails | ✅ Detects |
+| **Use Case** | General shortest path | Pathfinding with spatial awareness | Graphs with negative weights |
+| **Heuristic Required** | No | Yes (admissible) | No |
+| **Best For** | Non-negative weights | Known goal location, spatial problems | Negative weights, cycle detection |
 
 ## Performance Characteristics
 
@@ -465,7 +535,6 @@ go func() {
 - `Builder.BuildBiDirected()`
 - `MakeBuilderFromGraph()` - use visitors to collect edges and vertices
 - Algorithms:
-  - `BellmanFord`
   - `ConnectedComponents`
 
 ## Contributing
